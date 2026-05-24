@@ -1,12 +1,7 @@
 import streamlit as st
-import json
-import os
 
 # Set up mobile-first browser configuration
 st.set_page_config(page_title="Kal Kya Banau?", page_icon="🍳", layout="centered")
-
-# FIX: Use the system's temporary directory which has read/write permissions on Streamlit Cloud
-DB_FILE = os.path.join("/tmp", "recipe_pantry_db.json")
 
 # Core recipe database containing categories and lunchbox identifiers
 DEFAULT_RECIPES = [
@@ -15,7 +10,7 @@ DEFAULT_RECIPES = [
         "time": "20 mins",
         "staple": "Bataka-Powa",
         "kid_approved": True,
-        "is_lunchbox": True,  # Dry food suited for school afternoon lunch boxes
+        "is_lunchbox": True,
         "required": ["Poha", "Potato", "Onion"],
         "image": "https://images.unsplash.com/photo-1601050690597-df056fb4ce78?q=80&w=600&auto=format&fit=crop",
         "instructions": [
@@ -136,39 +131,11 @@ DEFAULT_BASE_INGREDIENTS = [
     "Chana Dal / Kala Chana", "White Chickpeas (Kabuli Chana)"
 ]
 
-# Helper function to load app state safely from a writable folder
-def load_permanent_db():
-    if not os.path.exists(DB_FILE):
-        initial_data = {
-            "recipes": DEFAULT_RECIPES,
-            "custom_ingredients": ["Lettuce"]
-        }
-        try:
-            with open(DB_FILE, "w") as f:
-                json.dump(initial_data, f, indent=4)
-        except Exception:
-            pass # Fallback if system writes are completely locked
-        return initial_data
-    try:
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {"recipes": DEFAULT_RECIPES, "custom_ingredients": ["Lettuce"]}
-
-# Helper function to write app state back to storage safely
-def save_permanent_db(data):
-    try:
-        with open(DB_FILE, "w") as f:
-            json.dump(data, f, indent=4)
-    except Exception:
-        pass
-
-# Load data and sync into Session States
-app_data = load_permanent_db()
+# Initialize states seamlessly in session memory
 if "recipe_db" not in st.session_state:
-    st.session_state.recipe_db = app_data["recipes"]
+    st.session_state.recipe_db = DEFAULT_RECIPES
 if "custom_ingredients" not in st.session_state:
-    st.session_state.custom_ingredients = app_data["custom_ingredients"]
+    st.session_state.custom_ingredients = ["Lettuce"]
 
 # Application Branding Headers
 st.title("🍳 Kal Kya Banau?")
@@ -208,16 +175,14 @@ with tab1:
                 active_inventory.append(item)
 
     st.markdown("---")
-    st.markdown("#### 🔒 Add New Permanent Ingredients:")
+    st.markdown("#### 🔒 Add New Active Ingredients:")
     
     new_item_input = st.text_input("Type item name (e.g., Cucumber, Mushrooms):", placeholder="e.g., Lettuce")
-    if st.button("➕ Save Ingredient to App", use_container_width=True):
+    if st.button("➕ Add Ingredient to List", use_container_width=True):
         cleaned_item = new_item_input.strip()
         if cleaned_item and cleaned_item not in st.session_state.custom_ingredients and cleaned_item not in DEFAULT_BASE_INGREDIENTS:
             st.session_state.custom_ingredients.append(cleaned_item)
-            app_data["custom_ingredients"] = st.session_state.custom_ingredients
-            save_permanent_db(app_data)
-            st.success(f"🎉 '{cleaned_item}' added to checklist!")
+            st.success(f"🎉 '{cleaned_item}' added!")
             st.rerun()
 
     if st.session_state.custom_ingredients:
@@ -230,8 +195,6 @@ with tab1:
                 with col2:
                     if st.button("🗑️", key=f"del_ing_{idx}"):
                         st.session_state.custom_ingredients.remove(item)
-                        app_data["custom_ingredients"] = st.session_state.custom_ingredients
-                        save_permanent_db(app_data)
                         st.rerun()
 
 # ==========================================
@@ -305,7 +268,7 @@ with tab3:
         lunch_option_map = {}
         for m in lunchbox_matches:
             r = m["recipe"]
-            status = "🟢 Pack Ready" if m["score"] == 1.0 else f"🟡 Missing {len(m['missing'])} items"
+            status = "🟢 Ready" if m["score"] == 1.0 else f"🟡 Missing {len(m['missing'])} items"
             label = f"{status}: {r['name']}"
             if r["kid_approved"]:
                 label += " 🌟"
@@ -325,10 +288,10 @@ with tab3:
                 st.markdown(f"{idx+1}. {step}")
 
 # ==========================================
-# TAB 4: PERMANENT USER RECIPE LOGGING PORTAL
+# TAB 4: USER RECIPE LOGGING PORTAL
 # ==========================================
 with tab4:
-    st.subheader("✍️ Log a New Permanent Recipe")
+    st.subheader("✍️ Log a New Recipe")
     
     with st.form("permanent_recipe_form", clear_on_submit=True):
         new_name = st.text_input("Recipe Title:", placeholder="e.g., Soya Chunk Fried Rice")
@@ -342,7 +305,7 @@ with tab4:
         new_steps_text = st.text_area("Cooking Instructions (One step per line description):", placeholder="Step 1...\nStep 2...")
         new_img_url = st.text_input("Photo Link:", value="https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=600&auto=format&fit=crop")
         
-        if st.form_submit_button("💾 Save Permanently to App"):
+        if st.form_submit_button("💾 Save to App Session"):
             if not new_name or not new_req_text or not new_steps_text:
                 st.error("Please fill out Name, Ingredients, and Steps before saving!")
             else:
@@ -361,8 +324,5 @@ with tab4:
                 }
                 
                 st.session_state.recipe_db.append(new_recipe_dict)
-                app_data["recipes"] = st.session_state.recipe_db
-                save_permanent_db(app_data)
-                
-                st.success(f"🎉 '{new_name}' written to app memory! Check Tab 2 or Tab 3.")
+                st.success(f"🎉 '{new_name}' added to your app! Check Tab 2 or Tab 3.")
                 st.rerun()
