@@ -141,7 +141,7 @@ def load_permanent_db():
     if not os.path.exists(DB_FILE):
         initial_data = {
             "recipes": DEFAULT_RECIPES,
-            "custom_ingredients": ["Lettuce"] # Pre-loaded based on your request!
+            "custom_ingredients": ["Lettuce"] # Pre-loaded so it is ready
         }
         with open(DB_FILE, "w") as f:
             json.dump(initial_data, f, indent=4)
@@ -169,7 +169,7 @@ st.title("🍳 Kal Kya Banau?")
 st.markdown("##### Smart Mobile Meal Planner & Permanent Pantry Engine")
 st.divider()
 
-# Core Tab Navigation Structure (Isolating the requested Kids Breakfast/Lunchbox Tab)
+# Core Tab Navigation Structure
 tab1, tab2, tab3, tab4 = st.tabs([
     "🛒 1. Fridge Stock", 
     "🍽️ 2. Main Meals", 
@@ -324,7 +324,7 @@ with tab3:
             if match["missing"]:
                 st.error(f"❌ Missing items to fulfill packing requirement: {', '.join(match['missing'])}")
             st.image(rec["image"], use_container_width=True)
-            st.markdown("**📑 Packing Instructions:**")
+            st.markdown("**🎒 Packing Instructions:**")
             for idx, step in enumerate(rec["instructions"]):
                 st.markdown(f"{idx+1}. {step}")
 
@@ -339,38 +339,3 @@ with tab4:
         new_name = st.text_input("Recipe Title:", placeholder="e.g., Soya Chunk Fried Rice")
         new_time = st.text_input("Cooking Duration:", placeholder="e.g., 20 mins")
         new_staple = st.selectbox("Meal Category Tag:", ["Bataka-Powa", "Wraps/Frankies", "Dal-Chawal", "Rice & Pulav Dishes", "Mexican/Continental"])
-        
-        # New breakfast/dry item filter mapping configuration switch
-        new_is_lunchbox = st.checkbox("🍱 Is this a safe, dry breakfast item suitable for afternoon school lunchboxes?")
-        new_is_teen = st.checkbox("🌟 Is this a kid/teen approved favorite dish?")
-        
-        new_req_text = st.text_input("Required Ingredients (comma-separated entries):", placeholder="Rice, Onion, Tomato")
-        new_steps_text = st.text_area("Cooking Instructions (One step per line description):", placeholder="Step 1...\nStep 2...")
-        
-        new_img_url = st.text_input("Photo Link (Optional placeholder assigned automatically):", value="https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=600&auto=format&fit=crop")
-        
-        if st.form_submit_button("💾 Save Permanently to App"):
-            if not new_name or not new_req_text or not new_steps_text:
-                st.error("Please fill out Name, Ingredients, and Steps before saving!")
-            else:
-                ingredients_parsed = [i.strip() for i in new_req_text.split(",") if i.strip()]
-                steps_parsed = [s.strip() for s in new_steps_text.split("\n") if s.strip()]
-                
-                new_recipe_dict = {
-                    "name": new_name.strip(),
-                    "time": new_time.strip() if new_time.strip() else "20 mins",
-                    "staple": new_staple,
-                    "kid_approved": new_is_teen,
-                    "is_lunchbox": new_is_lunchbox,
-                    "required": ingredients_parsed,
-                    "image": new_img_url.strip(),
-                    "instructions": steps_parsed
-                }
-                
-                # Append directly to database file schema and save
-                st.session_state.recipe_db.append(new_recipe_dict)
-                app_data["recipes"] = st.session_state.recipe_db
-                save_permanent_db(app_data)
-                
-                st.success(f"🎉 '{new_name}' has been written into permanent memory storage! View it inside Tab 2 or Tab 3 instantly.")
-                st.rerun()
