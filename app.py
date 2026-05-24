@@ -7,7 +7,7 @@ st.set_page_config(page_title="Kal Kya Banau?", page_icon="🍳", layout="center
 # 🔒 SIMPLE SECURITY LOCK SCREEN
 # ==========================================
 # CHANGE THIS TO YOUR PREFERRED 4-DIGIT PIN
-FAMILY_PIN = "1234" 
+FAMILY_PIN = "2512" 
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
