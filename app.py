@@ -5,8 +5,8 @@ import os
 # Set up mobile-first browser configuration
 st.set_page_config(page_title="Kal Kya Banau?", page_icon="🍳", layout="centered")
 
-# File path for permanent database storage across page refreshes
-DB_FILE = "recipe_pantry_db.json"
+# FIX: Use the system's temporary directory which has read/write permissions on Streamlit Cloud
+DB_FILE = os.path.join("/tmp", "recipe_pantry_db.json")
 
 # Core recipe database containing categories and lunchbox identifiers
 DEFAULT_RECIPES = [
@@ -102,7 +102,7 @@ DEFAULT_RECIPES = [
         "time": "20 mins",
         "staple": "Mexican/Continental",
         "kid_approved": True,
-        "is_lunchbox": False, # Too messy/wet for school lunchbox
+        "is_lunchbox": False,
         "required": ["Rice", "Tomato", "Cheese"],
         "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop",
         "instructions": [
@@ -136,15 +136,18 @@ DEFAULT_BASE_INGREDIENTS = [
     "Chana Dal / Kala Chana", "White Chickpeas (Kabuli Chana)"
 ]
 
-# Helper function to load app state from local storage file
+# Helper function to load app state safely from a writable folder
 def load_permanent_db():
     if not os.path.exists(DB_FILE):
         initial_data = {
             "recipes": DEFAULT_RECIPES,
-            "custom_ingredients": ["Lettuce"] # Pre-loaded so it is ready
+            "custom_ingredients": ["Lettuce"]
         }
-        with open(DB_FILE, "w") as f:
-            json.dump(initial_data, f, indent=4)
+        try:
+            with open(DB_FILE, "w") as f:
+                json.dump(initial_data, f, indent=4)
+        except Exception:
+            pass # Fallback if system writes are completely locked
         return initial_data
     try:
         with open(DB_FILE, "r") as f:
@@ -152,10 +155,13 @@ def load_permanent_db():
     except:
         return {"recipes": DEFAULT_RECIPES, "custom_ingredients": ["Lettuce"]}
 
-# Helper function to write app state back to local storage file
+# Helper function to write app state back to storage safely
 def save_permanent_db(data):
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    try:
+        with open(DB_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+    except Exception:
+        pass
 
 # Load data and sync into Session States
 app_data = load_permanent_db()
@@ -166,7 +172,7 @@ if "custom_ingredients" not in st.session_state:
 
 # Application Branding Headers
 st.title("🍳 Kal Kya Banau?")
-st.markdown("##### Smart Mobile Meal Planner & Permanent Pantry Engine")
+st.markdown("##### Smart Mobile Meal Planner & Pantry Engine")
 st.divider()
 
 # Core Tab Navigation Structure
@@ -186,28 +192,23 @@ with tab1:
     
     active_inventory = []
     
-    # 1. Fresh vegetables section
     with st.expander("🥦 Fresh Produce & Leftovers", expanded=True):
         for item in ["Potato", "Onion", "Tomato", "Bell Peppers / Capsicum", "Spinach / Palak", "Opo Squash / Lauki", "Any Dry Leftover Sabzi"]:
             if st.checkbox(item, value=True, key=f"base_{item}"):
                 active_inventory.append(item)
                 
-    # 2. Proteins & Flours section
     with st.expander("🧀 Proteins, Dairy & Flours", expanded=False):
         for item in ["Paneer", "Cheese", "Curd / Dahi", "Gram Flour / Besan", "Wheat Flour / Atta"]:
             if st.checkbox(item, value=True, key=f"base_{item}"):
                 active_inventory.append(item)
 
-    # 3. Grains & Pulses section
     with st.expander("🌾 Grains, Staples & Pulses", expanded=False):
         for item in ["Bread Slice", "Roti / Wraps", "Poha", "Rice", "Pasta / Macaroni", "Oats (Flakes/Flour)", "Toor Dal (Arhar)", "Moong Dal", "Chana Dal / Kala Chana", "White Chickpeas (Kabuli Chana)"]:
             if st.checkbox(item, value=True, key=f"base_{item}"):
                 active_inventory.append(item)
 
-    # 4. Permanent Ingredient Addition Section
     st.markdown("---")
     st.markdown("#### 🔒 Add New Permanent Ingredients:")
-    st.caption("Items typed here save permanently into the app database file and survive page refreshes.")
     
     new_item_input = st.text_input("Type item name (e.g., Cucumber, Mushrooms):", placeholder="e.g., Lettuce")
     if st.button("➕ Save Ingredient to App", use_container_width=True):
@@ -216,10 +217,9 @@ with tab1:
             st.session_state.custom_ingredients.append(cleaned_item)
             app_data["custom_ingredients"] = st.session_state.custom_ingredients
             save_permanent_db(app_data)
-            st.success(f"🎉 '{cleaned_item}' is now permanently added to your app checklist!")
+            st.success(f"🎉 '{cleaned_item}' added to checklist!")
             st.rerun()
 
-    # Display dynamically saved additions with active checkboxes and deletion keys
     if st.session_state.custom_ingredients:
         with st.expander("⭐ Your Custom Additions", expanded=True):
             for idx, item in enumerate(st.session_state.custom_ingredients):
@@ -263,7 +263,7 @@ with tab2:
         main_matches = [m for m in main_matches if m["recipe"]["kid_approved"]]
 
     if main_matches:
-        st.success(f"✨ Found **{len(main_matches)} options** sorted by active availability percentages.")
+        st.success(f"✨ Found **{len(main_matches)} options**")
         
         dropdown_options = []
         option_map = {}
@@ -283,7 +283,7 @@ with tab2:
             st.markdown(f"### {rec['name']}")
             st.caption(f"⏱️ Time: {rec['time']} | Tag: {rec['staple']}")
             if match["missing"]:
-                st.warning(f"⚠️ **Missing items to buy/prepare:** {', '.join(match['missing'])}")
+                st.warning(f"⚠️ **Missing items:** {', '.join(match['missing'])}")
             st.image(rec["image"], use_container_width=True)
             st.markdown("**📑 Preparation steps:**")
             for idx, step in enumerate(rec["instructions"]):
@@ -294,17 +294,13 @@ with tab2:
 # ==========================================
 with tab3:
     st.subheader("🎒 Dry Breakfast & School Lunchbox Options")
-    st.caption("This tab filters out messy, wet curries. It displays dry food items (like Poha, Cheese Koki, Sandwiches, Pulav, Biryani) that stay perfect in a school bag until afternoon lunch period.")
     
-    # Filter strictly for dry, lunchbox-safe recipes
     lunchbox_recipes = [r for r in st.session_state.recipe_db if r.get("is_lunchbox", False)]
     lunchbox_matches = calculate_recipe_matches(lunchbox_recipes, active_inventory)
     
     if not lunchbox_matches:
-        st.info("No lunchbox items matched. Head to tab 4 to add new custom recipes!")
+        st.info("No lunchbox items matched.")
     else:
-        st.info("💡 **Packing Tip:** Let these cool down slightly before shutting the lunch box lids to avoid condensation and sogginess.")
-        
         lunch_dropdown_options = []
         lunch_option_map = {}
         for m in lunchbox_matches:
@@ -322,7 +318,7 @@ with tab3:
             rec = match["recipe"]
             st.markdown(f"### {rec['name']}")
             if match["missing"]:
-                st.error(f"❌ Missing items to fulfill packing requirement: {', '.join(match['missing'])}")
+                st.error(f"❌ Missing items: {', '.join(match['missing'])}")
             st.image(rec["image"], use_container_width=True)
             st.markdown("**🎒 Packing Instructions:**")
             for idx, step in enumerate(rec["instructions"]):
@@ -333,9 +329,40 @@ with tab3:
 # ==========================================
 with tab4:
     st.subheader("✍️ Log a New Permanent Recipe")
-    st.caption("Saved meals write directly into the persistent storage file layout instantly.")
     
     with st.form("permanent_recipe_form", clear_on_submit=True):
         new_name = st.text_input("Recipe Title:", placeholder="e.g., Soya Chunk Fried Rice")
         new_time = st.text_input("Cooking Duration:", placeholder="e.g., 20 mins")
         new_staple = st.selectbox("Meal Category Tag:", ["Bataka-Powa", "Wraps/Frankies", "Dal-Chawal", "Rice & Pulav Dishes", "Mexican/Continental"])
+        
+        new_is_lunchbox = st.checkbox("🍱 Is this a safe, dry breakfast item suitable for school lunchboxes?")
+        new_is_teen = st.checkbox("🌟 Is this a kid/teen approved favorite dish?")
+        
+        new_req_text = st.text_input("Required Ingredients (comma-separated entries):", placeholder="Rice, Onion, Tomato")
+        new_steps_text = st.text_area("Cooking Instructions (One step per line description):", placeholder="Step 1...\nStep 2...")
+        new_img_url = st.text_input("Photo Link:", value="https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=600&auto=format&fit=crop")
+        
+        if st.form_submit_button("💾 Save Permanently to App"):
+            if not new_name or not new_req_text or not new_steps_text:
+                st.error("Please fill out Name, Ingredients, and Steps before saving!")
+            else:
+                ingredients_parsed = [i.strip() for i in new_req_text.split(",") if i.strip()]
+                steps_parsed = [s.strip() for s in new_steps_text.split("\n") if s.strip()]
+                
+                new_recipe_dict = {
+                    "name": new_name.strip(),
+                    "time": new_time.strip() if new_time.strip() else "20 mins",
+                    "staple": new_staple,
+                    "kid_approved": new_is_teen,
+                    "is_lunchbox": new_is_lunchbox,
+                    "required": ingredients_parsed,
+                    "image": new_img_url.strip(),
+                    "instructions": steps_parsed
+                }
+                
+                st.session_state.recipe_db.append(new_recipe_dict)
+                app_data["recipes"] = st.session_state.recipe_db
+                save_permanent_db(app_data)
+                
+                st.success(f"🎉 '{new_name}' written to app memory! Check Tab 2 or Tab 3.")
+                st.rerun()
