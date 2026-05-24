@@ -3,6 +3,36 @@ import streamlit as st
 # Set up mobile-first browser configuration
 st.set_page_config(page_title="Kal Kya Banau?", page_icon="🍳", layout="centered")
 
+# ==========================================
+# 🔒 SIMPLE SECURITY LOCK SCREEN
+# ==========================================
+# CHANGE THIS TO YOUR PREFERRED 4-DIGIT PIN
+FAMILY_PIN = "1234" 
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🍳 Kal Kya Banau?")
+    st.markdown("### 🔒 Family Access Required")
+    st.write("Please enter your family PIN to access the kitchen planner engine.")
+    
+    # Text input styled for mobile numerical entry
+    user_pin = st.text_input("Enter 4-Digit PIN:", type="password", max_chars=4, placeholder="••••")
+    
+    if st.button("Unlock App", use_container_width=True):
+        if user_pin == FAMILY_PIN:
+            st.session_state.authenticated = True
+            st.success("🔓 Access Granted!")
+            st.rerun()
+        else:
+            st.error("❌ Incorrect PIN. Please try again.")
+    st.stop() # Stops execution here so nothing else loads unless unlocked
+
+# ==========================================
+# CORE APP ENGINE (LOADS ONLY AFTER UNLOCK)
+# ==========================================
+
 # Core recipe database containing categories and lunchbox identifiers
 DEFAULT_RECIPES = [
     {
